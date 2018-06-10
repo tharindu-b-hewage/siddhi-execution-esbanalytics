@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+
+<suite name="Siddhi-Execution-EsbAnalytics-Test-Suite">
+    <test name="Siddhi-execution-esbanalytics-tests" enabled="true" preserve-order="true" parallel="false">
+        <classes>
+            <class name="org.wso2.extension.siddhi.execution.esbanalytics.aggregate.TestCaseOfEsbAnalyticsAggregateFunction"/>
+            <class name="org.wso2.extension.siddhi.execution.esbanalytics.function.TestCaseOfEsbAnalyticsFunction"/>
+            <class name="org.wso2.extension.siddhi.execution.esbanalytics.streamfunction.TestCaseOfEsbAnalyticsStreamFunction"/>
+            <class name="org.wso2.extension.siddhi.execution.esbanalytics.streamprocessor.TestCaseOfEsbAnalyticsStreamProcessor"/>
+            <class name="org.wso2.extension.siddhi.execution.esbanalytics.window.TestCaseOfEsbAnalyticsWindow"/>
+        </classes>
+    </test>
+</suite>
