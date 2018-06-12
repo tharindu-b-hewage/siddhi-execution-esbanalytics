@@ -93,27 +93,21 @@
                     <instructions>
                         <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
                         <Bundle-Name>${project.artifactId}</Bundle-Name>
-                        <Private-Package>org.wso2.analytics.esb.internal.*</Private-Package>
                         <Import-Package>
-                            *;resolution:=optional,
-                            org.apache.commons.logging.*,
-                            org.wso2.carbon.analytics.spark.core.*,
-                            org.wso2.orbit.joda-time.*,
-                            org.json.*,
-                            org.apache.commons.io.*,
-                            org.apache.commons.lang3.*,
-                            org.wso2.siddhi.*,
-                            com.esotericsoftware.kryo.*,
                             *;resolution:=optional
                         </Import-Package>
                         <Export-Package>
                             org.wso2.extension.siddhi.execution.esbanalytics,
+                            org.wso2.extension.siddhi.execution.esbanalytics.decompress.util.*,
                             org.wso2.extension.siddhi.execution.esbanalytics.*
                         </Export-Package>
-                        <DynamicImport-Package>*</DynamicImport-Package>
                         <Include-Resource>
-                            META-INF=target/classes/META-INF
+                            META-INF=target/classes/META-INF,
+                            decompressedEventDefinition=target/classes/decompressedEventDefinition,
+                            esbanalytics.siddhiext=target/classes/esbanalytics.siddhiext
                         </Include-Resource>
+                        <Embed-Dependency>*;</Embed-Dependency>
+                        <Embed-Transitive>true</Embed-Transitive>
                     </instructions>
                 </configuration>
             </plugin>

@@ -1,4 +1,4 @@
-package org.wso2.extension.siddhi.execution.esbanalytics;
+package org.wso2.extension.siddhi.execution.esbanalytics.decompress;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
@@ -7,7 +7,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.wso2.carbon.analytics.spark.core.util.AnalyticsConstants;
 import org.wso2.carbon.analytics.spark.core.util.CompressedEventAnalyticsUtils;
 import org.wso2.carbon.analytics.spark.core.util.PublishingPayload;
-import org.wso2.extension.siddhi.execution.esbanalytics.util.CompressedEventUtils;
+import org.wso2.extension.siddhi.execution.esbanalytics.decompress.util.CompressedEventUtils;
+import org.wso2.siddhi.annotation.Example;
 import org.wso2.siddhi.annotation.Extension;
 import org.wso2.siddhi.annotation.Parameter;
 import org.wso2.siddhi.annotation.ReturnAttribute;
@@ -17,6 +18,7 @@ import org.wso2.siddhi.core.event.ComplexEventChunk;
 import org.wso2.siddhi.core.event.stream.StreamEvent;
 import org.wso2.siddhi.core.event.stream.StreamEventCloner;
 import org.wso2.siddhi.core.event.stream.populater.ComplexEventPopulater;
+import org.wso2.siddhi.core.exception.SiddhiAppCreationException;
 import org.wso2.siddhi.core.exception.SiddhiAppRuntimeException;
 import org.wso2.siddhi.core.executor.ExpressionExecutor;
 import org.wso2.siddhi.core.executor.VariableExpressionExecutor;
@@ -25,7 +27,6 @@ import org.wso2.siddhi.core.query.processor.stream.StreamProcessor;
 import org.wso2.siddhi.core.util.config.ConfigReader;
 import org.wso2.siddhi.query.api.definition.AbstractDefinition;
 import org.wso2.siddhi.query.api.definition.Attribute;
-import org.wso2.siddhi.core.exception.SiddhiAppCreationException;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -45,17 +46,17 @@ import javax.xml.bind.DatatypeConverter;
         description = "This extension decompress any compressed analytics events coming from WSO2 Enterprice" +
                 " Integrator",
         parameters = {
-                @Parameter(name = "meta_compressed",
-                        description = "Identify compressed information of the message",
+                @Parameter(name = "meta.compressed",
+                        description = "Compressed state of the message",
                         type = {DataType.BOOL}),
-                @Parameter(name = "meta_tenantId",
-                        description = "ID value of the tenant",
+                @Parameter(name = "meta.tenant.id",
+                        description = "Tenant id",
                         type = {DataType.INT}),
-                @Parameter(name = "messageId",
-                        description = "ID value of the message",
+                @Parameter(name = "message.id",
+                        description = "Message id",
                         type = {DataType.STRING}),
-                @Parameter(name = "flowData",
-                        description = "Event message",
+                @Parameter(name = "flow.data",
+                        description = "Compressed stream events chunk",
                         type = {DataType.STRING})
         },
         returnAttributes = {
@@ -77,7 +78,7 @@ import javax.xml.bind.DatatypeConverter;
                 @ReturnAttribute(name = "componentIndex",
                         description = "-",
                         type = {DataType.INT}),
-                @ReturnAttribute(name = "componentID",
+                @ReturnAttribute(name = "componentId",
                         description = "-",
                         type = {DataType.STRING}),
                 @ReturnAttribute(name = "startTime",
@@ -116,9 +117,19 @@ import javax.xml.bind.DatatypeConverter;
                 @ReturnAttribute(name = "metaTenantId",
                         description = "-",
                         type = {DataType.INT}),
-                @ReturnAttribute(name = "_timestamp",
+                @ReturnAttribute(name = "timestamp",
                         description = "-",
                         type = {DataType.LONG})
+        },
+        examples = {
+                @Example(
+                        syntax = "define stream inputStream(meta_compressed bool, meta_tenantId int," +
+                                " messageId string, flowData string); " + "@info( name = 'query') from " +
+                                "inputStream#esbAnalytics:decompress(meta_compressed, meta_tenantId, " +
+                                "messageId, flowData) insert all events into outputStream;",
+                        description = "This query uses the incoming esb analytics message to produce decompressed " +
+                                "esb analytics events."
+                )
         }
 )
 public class DecompressStreamProcessorExtension extends StreamProcessor {
@@ -139,6 +150,33 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
     private int[] dataColumnIndex;
     private int[] metaCompressedIndex;
     private int[] metaTenantIdIndex;
+
+    /**
+     * Get the definition of the output fields
+     *
+     * @return Name and type of decompressed fields
+     */
+    private static Map<String, String> getOutputFields() {
+
+        Map<String, String> fields = new LinkedHashMap<String, String>();
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        try {
+            String[] lines = IOUtils.toString(classLoader.getResourceAsStream("decompressedEventDefinition"))
+                    .split("\n");
+            for (String line : lines) {
+                if (!StringUtils.startsWithIgnoreCase(line, "#") && StringUtils.isNotEmpty(line)) {
+                    String[] fieldDef = StringUtils.deleteWhitespace(line).split(":");
+                    if (fieldDef.length == 2) {
+                        fields.put(fieldDef[0], fieldDef[1]);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new SiddhiAppCreationException("Error occurred while reading decompressed event definitions: "
+                    + e.getMessage(), e);
+        }
+        return fields;
+    }
 
     @Override
     protected void process(ComplexEventChunk<StreamEvent> streamEventChunk, Processor nextProcessor,
@@ -198,8 +236,9 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
 
         this.fields = getOutputFields();
         List<Attribute> outputAttributes = new ArrayList<Attribute>();
-        for (String fielname : this.fields.keySet()) {
-            String fieldType = this.fields.get(fielname);
+        for (Map.Entry<String, String> entry : this.fields.entrySet()) {
+            String fielname = entry.getKey();
+            String fieldType = entry.getValue();
             Attribute.Type type = null;
             if (fieldType.equalsIgnoreCase("double")) {
                 type = Attribute.Type.DOUBLE;
@@ -221,33 +260,6 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
     }
 
     /**
-     * Get the definition of the output fields
-     *
-     * @return Name and type of decompressed fields
-     */
-    private static Map<String, String> getOutputFields() {
-
-        Map<String, String> fields = new LinkedHashMap<String, String>();
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        try {
-            String[] lines = IOUtils.toString(classLoader.getResourceAsStream("decompressedEventDefinition"))
-                    .split("\n");
-            for (String line : lines) {
-                if (!StringUtils.startsWithIgnoreCase(line, "#") && StringUtils.isNotEmpty(line)) {
-                    String[] fieldDef = StringUtils.deleteWhitespace(line).split(":");
-                    if (fieldDef.length == 2) {
-                        fields.put(fieldDef[0], fieldDef[1]);
-                    }
-                }
-            }
-        } catch (IOException e) {
-            new SiddhiAppCreationException("Error occured while reading decompressed event definitions: "
-                    + e.getMessage(), e);
-        }
-        return fields;
-    }
-
-    /**
      * This will be called only once and this can be used to acquire
      * required resources for the processing element.
      * This will be called after initializing the system and before
@@ -257,21 +269,28 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
     public void start() {
 
         for (ExpressionExecutor expressionExecutor : attributeExpressionExecutors) {
-            if(expressionExecutor instanceof VariableExpressionExecutor) {
+            if (expressionExecutor instanceof VariableExpressionExecutor) {
                 VariableExpressionExecutor variable = (VariableExpressionExecutor) expressionExecutor;
                 String variableName = variable.getAttribute().getName();
                 switch (variableName) {
-                    case AnalyticsConstants.DATA_COLUMN :
+                    case AnalyticsConstants.DATA_COLUMN:
                         this.dataColumnIndex = variable.getPosition();
                         break;
-                    case AnalyticsConstants.META_FIELD_COMPRESSED :
+                    case AnalyticsConstants.META_FIELD_COMPRESSED:
                         this.metaCompressedIndex = variable.getPosition();
                         break;
-                    case AnalyticsConstants.META_FIELD_TENANT_ID :
+                    case AnalyticsConstants.META_FIELD_TENANT_ID:
                         this.metaTenantIdIndex = variable.getPosition();
+                        break;
+                    default:
                         break;
                 }
             }
+        }
+
+        if (this.dataColumnIndex == null || this.metaCompressedIndex == null || this.metaTenantIdIndex == null) {
+            throw new SiddhiAppCreationException("Attributes are invalid. Please use exact names as used " +
+                    "in the example for the attributes (flowData, meta_compressed and meta_tenantId)");
         }
     }
 

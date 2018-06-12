@@ -5,11 +5,7 @@
 <suite name="Siddhi-Execution-EsbAnalytics-Test-Suite">
     <test name="Siddhi-execution-esbanalytics-tests" enabled="true" preserve-order="true" parallel="false">
         <classes>
-            <class name="org.wso2.extension.siddhi.execution.esbanalytics.aggregate.TestCaseOfEsbAnalyticsAggregateFunction"/>
-            <class name="org.wso2.extension.siddhi.execution.esbanalytics.function.TestCaseOfEsbAnalyticsFunction"/>
-            <class name="org.wso2.extension.siddhi.execution.esbanalytics.streamfunction.TestCaseOfEsbAnalyticsStreamFunction"/>
-            <class name="org.wso2.extension.siddhi.execution.esbanalytics.streamprocessor.TestCaseOfEsbAnalyticsStreamProcessor"/>
-            <class name="org.wso2.extension.siddhi.execution.esbanalytics.window.TestCaseOfEsbAnalyticsWindow"/>
+            <class name="org.wso2.extension.siddhi.execution.esbanalytics.TestCaseOfDecompressStreamProcessorExtension"/>
         </classes>
     </test>
 </suite>
