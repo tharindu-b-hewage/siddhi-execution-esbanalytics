@@ -96,6 +96,15 @@
                         <Import-Package>
                             *;resolution:=optional
                         </Import-Package>
+                        <Private-Package>
+                            com.esotericsoftware.kryo.*,
+                            org.wso2.carbon.analytics.spark.core.*,
+                            com.esotericsoftware.minlog.*,
+                            com.esotericsoftware.reflectasm.*,
+                            org.ow2.asm.*,
+                            org.objectweb.asm.*,
+                            org.objenesis.*
+                        </Private-Package>
                         <Export-Package>
                             org.wso2.extension.siddhi.execution.esbanalytics,
                             org.wso2.extension.siddhi.execution.esbanalytics.decompress.util.*,
@@ -106,8 +115,6 @@
                             decompressedEventDefinition=target/classes/decompressedEventDefinition,
                             esbanalytics.siddhiext=target/classes/esbanalytics.siddhiext
                         </Include-Resource>
-                        <Embed-Dependency>*;</Embed-Dependency>
-                        <Embed-Transitive>true</Embed-Transitive>
                     </instructions>
                 </configuration>
             </plugin>
