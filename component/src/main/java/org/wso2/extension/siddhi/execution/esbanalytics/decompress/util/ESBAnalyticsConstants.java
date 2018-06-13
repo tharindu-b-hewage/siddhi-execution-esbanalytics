@@ -24,4 +24,12 @@ public class ESBAnalyticsConstants {
 
     // Attribute for the tenant ID
     public static final String META_TENANT_ID_ATTRIBUTE = "metaTenantId";
+
+    // Uncompressed message data types
+    public static final String TYPE_DOUBLE = "double";
+    public static final String TYPE_FLOAT = "float";
+    public static final String TYPE_INTEGER = "integer";
+    public static final String TYPE_LONG = "long";
+    public static final String TYPE_BOOL = "boolean";
+    public static final String TYPE_STRING = "string";
 }

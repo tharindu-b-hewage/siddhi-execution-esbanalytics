@@ -37,6 +37,13 @@ import java.util.List;
 import java.util.Map;
 import javax.xml.bind.DatatypeConverter;
 
+import static org.wso2.extension.siddhi.execution.esbanalytics.decompress.util.ESBAnalyticsConstants.TYPE_BOOL;
+import static org.wso2.extension.siddhi.execution.esbanalytics.decompress.util.ESBAnalyticsConstants.TYPE_DOUBLE;
+import static org.wso2.extension.siddhi.execution.esbanalytics.decompress.util.ESBAnalyticsConstants.TYPE_FLOAT;
+import static org.wso2.extension.siddhi.execution.esbanalytics.decompress.util.ESBAnalyticsConstants.TYPE_INTEGER;
+import static org.wso2.extension.siddhi.execution.esbanalytics.decompress.util.ESBAnalyticsConstants.TYPE_LONG;
+import static org.wso2.extension.siddhi.execution.esbanalytics.decompress.util.ESBAnalyticsConstants.TYPE_STRING;
+
 /**
  * Decompress streaming analytics events coming from the WSO2 Enterprise Integrator
  */
@@ -134,19 +141,17 @@ import javax.xml.bind.DatatypeConverter;
 )
 public class DecompressStreamProcessorExtension extends StreamProcessor {
 
-    private static ThreadLocal<Kryo> kryoTL = new ThreadLocal<Kryo>() {
-        protected Kryo initialValue() {
+    private static final ThreadLocal<Kryo> kryoTL = ThreadLocal.withInitial(() -> {
 
-            Kryo kryo = new Kryo();
-            /* Class registering precedence matters. Hence intentionally giving a registration ID */
-            kryo.register(HashMap.class, 111);
-            kryo.register(ArrayList.class, 222);
-            kryo.register(PublishingPayload.class, 333);
-            return kryo;
-        }
-    };
+        Kryo kryo = new Kryo();
+        /* Class registering precedence matters. Hence intentionally giving a registration ID */
+        kryo.register(HashMap.class, 111);
+        kryo.register(ArrayList.class, 222);
+        kryo.register(PublishingPayload.class, 333);
+        return kryo;
+    });
 
-    private Map<String, String> fields = new LinkedHashMap<String, String>();
+    private Map<String, String> fields = new LinkedHashMap<>();
     private int[] dataColumnIndex;
     private int[] metaCompressedIndex;
     private int[] metaTenantIdIndex;
@@ -158,7 +163,7 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
      */
     private static Map<String, String> getOutputFields() {
 
-        Map<String, String> fields = new LinkedHashMap<String, String>();
+        Map<String, String> fields = new LinkedHashMap<>();
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         try {
             String[] lines = IOUtils.toString(classLoader.getResourceAsStream("decompressedEventDefinition"))
@@ -182,7 +187,7 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
     protected void process(ComplexEventChunk<StreamEvent> streamEventChunk, Processor nextProcessor,
                            StreamEventCloner streamEventCloner, ComplexEventPopulater complexEventPopulater) {
 
-        ComplexEventChunk<StreamEvent> decompressedStreamEventChunk = new ComplexEventChunk<StreamEvent>(false);
+        ComplexEventChunk<StreamEvent> decompressedStreamEventChunk = new ComplexEventChunk<>(false);
         while (streamEventChunk.hasNext()) {
             StreamEvent compressedEvent = streamEventChunk.next();
             String eventString = (String) compressedEvent.getAttribute(this.dataColumnIndex);
@@ -194,10 +199,14 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
                     unzippedByteArray = new ByteArrayInputStream(DatatypeConverter.parseBase64Binary(eventString));
                 }
                 Input input = new Input(unzippedByteArray);
-                Map<String, Object> aggregatedEvent = kryoTL.get().readObjectOrNull(input, HashMap.class);
 
+                // Suppress checking for obvious uncompressed event string
+                @SuppressWarnings("unchecked")
+                Map<String, Object> aggregatedEvent = kryoTL.get().readObjectOrNull(input, HashMap.class);
+                @SuppressWarnings("unchecked")
                 ArrayList<List<Object>> eventsList = (ArrayList<List<Object>>) aggregatedEvent.get(
                         AnalyticsConstants.EVENTS_ATTRIBUTE);
+                @SuppressWarnings("unchecked")
                 ArrayList<PublishingPayload> payloadsList = (ArrayList<PublishingPayload>) aggregatedEvent.get(
                         AnalyticsConstants.PAYLOADS_ATTRIBUTE);
 
@@ -208,7 +217,7 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
                     StreamEvent decompressedEvent = streamEventCloner.copyStreamEvent(compressedEvent);
                     // Create a new event with decompressed fields
                     Object[] decompressedFields = CompressedEventUtils.getFieldValues(
-                            new ArrayList<String>(this.fields.keySet()), eventsList.get(i), payloadsList, i,
+                            new ArrayList<>(this.fields.keySet()), eventsList.get(i), payloadsList, i,
                             compressedEvent.getTimestamp(), metaTenantId, host);
                     complexEventPopulater.populateComplexEvent(decompressedEvent, decompressedFields);
                     decompressedStreamEventChunk.add(decompressedEvent);
@@ -222,8 +231,7 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
     }
 
     /**
-     * The initialization method for {@link StreamProcessor}, which will be called before other methods and validate
-     * the all configuration and getting the initial values.
+     * Get attributes which are to be to be populated in the uncompressed message
      *
      * @param attributeExpressionExecutors are the executors of each attributes in the Function
      * @param configReader                 this hold the {@link StreamProcessor} extensions configuration reader.
@@ -235,22 +243,22 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
                                    SiddhiAppContext siddhiAppContext) {
 
         this.fields = getOutputFields();
-        List<Attribute> outputAttributes = new ArrayList<Attribute>();
+        List<Attribute> outputAttributes = new ArrayList<>();
         for (Map.Entry<String, String> entry : this.fields.entrySet()) {
             String fielname = entry.getKey();
             String fieldType = entry.getValue();
             Attribute.Type type = null;
-            if (fieldType.equalsIgnoreCase("double")) {
+            if (fieldType.equalsIgnoreCase(TYPE_DOUBLE)) {
                 type = Attribute.Type.DOUBLE;
-            } else if (fieldType.equalsIgnoreCase("float")) {
+            } else if (fieldType.equalsIgnoreCase(TYPE_FLOAT)) {
                 type = Attribute.Type.FLOAT;
-            } else if (fieldType.equalsIgnoreCase("integer")) {
+            } else if (fieldType.equalsIgnoreCase(TYPE_INTEGER)) {
                 type = Attribute.Type.INT;
-            } else if (fieldType.equalsIgnoreCase("long")) {
+            } else if (fieldType.equalsIgnoreCase(TYPE_LONG)) {
                 type = Attribute.Type.LONG;
-            } else if (fieldType.equalsIgnoreCase("boolean")) {
+            } else if (fieldType.equalsIgnoreCase(TYPE_BOOL)) {
                 type = Attribute.Type.BOOL;
-            } else if (fieldType.equalsIgnoreCase("string")) {
+            } else if (fieldType.equalsIgnoreCase(TYPE_STRING)) {
                 type = Attribute.Type.STRING;
             }
             outputAttributes.add(new Attribute(fielname, type));
@@ -260,10 +268,7 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
     }
 
     /**
-     * This will be called only once and this can be used to acquire
-     * required resources for the processing element.
-     * This will be called after initializing the system and before
-     * starting to process the events.
+     * Set index values for each attribute in the incoming compressed message
      */
     @Override
     public void start() {

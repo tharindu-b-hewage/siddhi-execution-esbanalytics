@@ -29,6 +29,8 @@ import java.util.List;
 public class CompressedEventUtils {
 
     /**
+     * Get attributes to be populated in the uncompressed message as an object array
+     *
      * @param columns      List of output column names
      * @param event        event
      * @param payloadsList List of payloads
@@ -36,7 +38,7 @@ public class CompressedEventUtils {
      * @param timestamp    Timestamp
      * @param metaTenantId Teanant ID meta field
      * @param host         Host
-     * @return
+     * @return An array of objects of attributes to be populated in to the decompressed stream
      */
     public static Object[] getFieldValues(List<String> columns, List<Object> event,
                                           List<PublishingPayload> payloadsList, int eventIndex, long timestamp,
@@ -47,28 +49,32 @@ public class CompressedEventUtils {
         // Adding component attributes
         if (event != null) {
             for (int i = 0; i < columns.size(); i++) {
-                if (columns.get(i).equals(AnalyticsConstants.TIMESTAMP_FIELD)) {
-                    fieldsVals[i] = timestamp;
-                } else if (columns.get(i).equals(ESBAnalyticsConstants.META_TENANT_ID_ATTRIBUTE)) {
-                    fieldsVals[i] = metaTenantId;
-                } else if (columns.get(i).equals(AnalyticsConstants.HOST_ATTRIBUTE)) {
-                    fieldsVals[i] = host;
-                } else {
-                    fieldsVals[i] = event.get(eventFieldIndex);
-                    eventFieldIndex++;
+                switch (columns.get(i)) {
+                    case AnalyticsConstants.TIMESTAMP_FIELD:
+                        fieldsVals[i] = timestamp;
+                        break;
+                    case ESBAnalyticsConstants.META_TENANT_ID_ATTRIBUTE:
+                        fieldsVals[i] = metaTenantId;
+                        break;
+                    case AnalyticsConstants.HOST_ATTRIBUTE:
+                        fieldsVals[i] = host;
+                        break;
+                    default:
+                        fieldsVals[i] = event.get(eventFieldIndex);
+                        eventFieldIndex++;
+                        break;
                 }
             }
         }
 
         // Adding payloads
         if (payloadsList != null) {
-            for (int j = 0; j < payloadsList.size(); j++) {
-                PublishingPayload publishingPalyload = payloadsList.get(j);
+            for (PublishingPayload publishingPalyload : payloadsList) {
                 String payload = publishingPalyload.getPayload();
                 List<Integer> mappingAttributes = publishingPalyload.getEvents().get(eventIndex);
                 if (mappingAttributes != null) {
-                    for (int k = 0; k < mappingAttributes.size(); k++) {
-                        fieldsVals[mappingAttributes.get(k)] = payload;
+                    for (int mappingAttribute : mappingAttributes) {
+                        fieldsVals[mappingAttribute] = payload;
                     }
                 }
             }

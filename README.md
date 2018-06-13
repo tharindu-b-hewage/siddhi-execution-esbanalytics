@@ -1,9 +1,8 @@
 ﻿siddhi-execution-esbanalytics
 ======================================
-
-
-
-
+siddhi-execution-esbanalytics is an extension in siddhi written for WSO2 EI. This 
+extension contain methods to process analytics messages coming from WSO2 EI as 
+'wso2Event' streaming events such as decompressing a compressed analytics message.
 
 **Using the extension in <a target="_blank" href="https://github.com/wso2/product-sp">WSO2 Stream Processor</a>**
 
