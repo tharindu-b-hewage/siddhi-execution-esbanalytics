@@ -34,9 +34,9 @@ public class CompressedEventUtils {
      * @param columns      List of output column names
      * @param event        event
      * @param payloadsList List of payloads
-     * @param eventIndex   Index if the event
+     * @param eventIndex   Index of the event
      * @param timestamp    Timestamp
-     * @param metaTenantId Teanant ID meta field
+     * @param metaTenantId Teanant ID field
      * @param host         Host
      * @return An array of objects of attributes to be populated in to the decompressed stream
      */

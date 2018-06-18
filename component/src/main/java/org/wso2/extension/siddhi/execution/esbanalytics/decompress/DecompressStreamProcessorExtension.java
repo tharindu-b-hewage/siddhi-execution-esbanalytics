@@ -68,49 +68,49 @@ import static org.wso2.extension.siddhi.execution.esbanalytics.decompress.util.E
         },
         returnAttributes = {
                 @ReturnAttribute(name = "messageFlowId",
-                        description = "-",
+                        description = "Statistic tracing id for the message flow",
                         type = {DataType.STRING}),
                 @ReturnAttribute(name = "host",
                         description = "-",
                         type = {DataType.STRING}),
                 @ReturnAttribute(name = "hashCode",
-                        description = "-",
+                        description = "HashCode of the reporting component",
                         type = {DataType.STRING}),
                 @ReturnAttribute(name = "componentName",
-                        description = "-",
+                        description = "Name of the component",
                         type = {DataType.STRING}),
                 @ReturnAttribute(name = "componentType",
-                        description = "-",
+                        description = "Component type of the component",
                         type = {DataType.STRING}),
                 @ReturnAttribute(name = "componentIndex",
                         description = "-",
                         type = {DataType.INT}),
                 @ReturnAttribute(name = "componentId",
-                        description = "-",
+                        description = "Unique Id of the reporting component",
                         type = {DataType.STRING}),
                 @ReturnAttribute(name = "startTime",
-                        description = "-",
+                        description = "Start time of the event-",
                         type = {DataType.LONG}),
                 @ReturnAttribute(name = "endTime",
-                        description = "-",
+                        description = "EndTime of the Event",
                         type = {DataType.LONG}),
                 @ReturnAttribute(name = "duration",
                         description = "-",
                         type = {DataType.LONG}),
                 @ReturnAttribute(name = "beforePayload",
-                        description = "-",
+                        description = "Payload before mediation by the component",
                         type = {DataType.STRING}),
                 @ReturnAttribute(name = "afterPayLoad",
-                        description = "-",
+                        description = "Payload after mediation by the component",
                         type = {DataType.STRING}),
                 @ReturnAttribute(name = "contextPropertyMap",
-                        description = "-",
+                        description = "Message context properties for the component",
                         type = {DataType.STRING}),
                 @ReturnAttribute(name = "transportPropertyMap",
-                        description = "-",
+                        description = "-Transport properties for the component",
                         type = {DataType.STRING}),
                 @ReturnAttribute(name = "children",
-                        description = "-",
+                        description = "Children List for the component",
                         type = {DataType.STRING}),
                 @ReturnAttribute(name = "entryPoint",
                         description = "-",
@@ -152,14 +152,13 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
     });
 
     private Map<String, String> fields = new LinkedHashMap<>();
-    private int[] dataColumnIndex;
-    private int[] metaCompressedIndex;
-    private int[] metaTenantIdIndex;
+    private List<String> columns;
+    private Map<String, VariableExpressionExecutor> compressedEventAttributes;
 
     /**
-     * Get the definition of the output fields
+     * Get the definitions of the output fields in the decompressed event
      *
-     * @return Name and type of decompressed fields
+     * @return Name and type of decompressed fields as a Map
      */
     private static Map<String, String> getOutputFields() {
 
@@ -183,6 +182,14 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
         return fields;
     }
 
+    /**
+     * Decompress incoming streaming event chunk and hand it over to the next processor
+     *
+     * @param streamEventChunk      Incoming compressed events chunk
+     * @param nextProcessor         Next event processor to hand over uncompressed event chunk
+     * @param streamEventCloner     Event cloner to copy the compressed event
+     * @param complexEventPopulater Event populator to add uncompressed fields to the uncompressed event
+     */
     @Override
     protected void process(ComplexEventChunk<StreamEvent> streamEventChunk, Processor nextProcessor,
                            StreamEventCloner streamEventCloner, ComplexEventPopulater complexEventPopulater) {
@@ -190,10 +197,13 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
         ComplexEventChunk<StreamEvent> decompressedStreamEventChunk = new ComplexEventChunk<>(false);
         while (streamEventChunk.hasNext()) {
             StreamEvent compressedEvent = streamEventChunk.next();
-            String eventString = (String) compressedEvent.getAttribute(this.dataColumnIndex);
+            String eventString = (String) this.compressedEventAttributes.get(AnalyticsConstants.DATA_COLUMN)
+                    .execute(compressedEvent);
             if (!eventString.isEmpty()) {
                 ByteArrayInputStream unzippedByteArray;
-                if ((Boolean) compressedEvent.getAttribute(this.metaCompressedIndex)) {
+                Boolean isCompressed = (Boolean) this.compressedEventAttributes.
+                        get(AnalyticsConstants.META_FIELD_COMPRESSED).execute(compressedEvent);
+                if (isCompressed) {
                     unzippedByteArray = CompressedEventAnalyticsUtils.decompress(eventString);
                 } else {
                     unzippedByteArray = new ByteArrayInputStream(DatatypeConverter.parseBase64Binary(eventString));
@@ -211,19 +221,20 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
                         AnalyticsConstants.PAYLOADS_ATTRIBUTE);
 
                 String host = (String) aggregatedEvent.get(AnalyticsConstants.HOST_ATTRIBUTE);
-                int metaTenantId = (int) compressedEvent.getAttribute(this.metaTenantIdIndex);
+                int metaTenantId = (int) this.compressedEventAttributes.get(AnalyticsConstants.META_FIELD_TENANT_ID)
+                        .execute(compressedEvent);
                 // Iterate over the array of events
                 for (int i = 0; i < eventsList.size(); i++) {
                     StreamEvent decompressedEvent = streamEventCloner.copyStreamEvent(compressedEvent);
-                    // Create a new event with decompressed fields
+                    // Create a new event with the decompressed fields
                     Object[] decompressedFields = CompressedEventUtils.getFieldValues(
-                            new ArrayList<>(this.fields.keySet()), eventsList.get(i), payloadsList, i,
+                            columns, eventsList.get(i), payloadsList, i,
                             compressedEvent.getTimestamp(), metaTenantId, host);
                     complexEventPopulater.populateComplexEvent(decompressedEvent, decompressedFields);
                     decompressedStreamEventChunk.add(decompressedEvent);
                 }
             } else {
-                throw new SiddhiAppRuntimeException("Error occured while decompressing events. No compressed" +
+                throw new SiddhiAppRuntimeException("Error occurred while decompressing events. No compressed" +
                         " data found.");
             }
         }
@@ -233,7 +244,7 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
     /**
      * Get attributes which are to be to be populated in the uncompressed message
      *
-     * @param attributeExpressionExecutors are the executors of each attributes in the Function
+     * @param attributeExpressionExecutors Executors of each attributes in the Function
      * @param configReader                 this hold the {@link StreamProcessor} extensions configuration reader.
      * @param siddhiAppContext             Siddhi app runtime context
      */
@@ -242,10 +253,40 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
                                    ExpressionExecutor[] attributeExpressionExecutors, ConfigReader configReader,
                                    SiddhiAppContext siddhiAppContext) {
 
+        // Get attributes from the compressed event
+        this.compressedEventAttributes = new HashMap<>();
+        for (ExpressionExecutor expressionExecutor : attributeExpressionExecutors) {
+            if (expressionExecutor instanceof VariableExpressionExecutor) {
+                VariableExpressionExecutor variable = (VariableExpressionExecutor) expressionExecutor;
+                String variableName = variable.getAttribute().getName();
+                switch (variableName) {
+                    case AnalyticsConstants.DATA_COLUMN:
+                        this.compressedEventAttributes.put(AnalyticsConstants.DATA_COLUMN, variable);
+                        break;
+                    case AnalyticsConstants.META_FIELD_COMPRESSED:
+                        this.compressedEventAttributes.put(AnalyticsConstants.META_FIELD_COMPRESSED, variable);
+                        break;
+                    case AnalyticsConstants.META_FIELD_TENANT_ID:
+                        this.compressedEventAttributes.put(AnalyticsConstants.META_FIELD_TENANT_ID, variable);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+        if (this.compressedEventAttributes.get(AnalyticsConstants.DATA_COLUMN) == null
+                && this.compressedEventAttributes.get(AnalyticsConstants.META_FIELD_COMPRESSED) == null
+                && this.compressedEventAttributes.get(AnalyticsConstants.META_FIELD_TENANT_ID) == null) {
+
+            throw new SiddhiAppCreationException("Cannot find required attributes. " +
+                    "Please provide flowData, meta_compressed, meta_tenantId attributes in exact names");
+        }
+
+        // Set uncompressed event attributes
         this.fields = getOutputFields();
         List<Attribute> outputAttributes = new ArrayList<>();
         for (Map.Entry<String, String> entry : this.fields.entrySet()) {
-            String fielname = entry.getKey();
+            String fieldName = entry.getKey();
             String fieldType = entry.getValue();
             Attribute.Type type = null;
             if (fieldType.equalsIgnoreCase(TYPE_DOUBLE)) {
@@ -261,42 +302,16 @@ public class DecompressStreamProcessorExtension extends StreamProcessor {
             } else if (fieldType.equalsIgnoreCase(TYPE_STRING)) {
                 type = Attribute.Type.STRING;
             }
-            outputAttributes.add(new Attribute(fielname, type));
+            outputAttributes.add(new Attribute(fieldName, type));
         }
+        this.columns = new ArrayList<>(this.fields.keySet());
 
         return outputAttributes;
     }
 
-    /**
-     * Set index values for each attribute in the incoming compressed message
-     */
     @Override
     public void start() {
 
-        for (ExpressionExecutor expressionExecutor : attributeExpressionExecutors) {
-            if (expressionExecutor instanceof VariableExpressionExecutor) {
-                VariableExpressionExecutor variable = (VariableExpressionExecutor) expressionExecutor;
-                String variableName = variable.getAttribute().getName();
-                switch (variableName) {
-                    case AnalyticsConstants.DATA_COLUMN:
-                        this.dataColumnIndex = variable.getPosition();
-                        break;
-                    case AnalyticsConstants.META_FIELD_COMPRESSED:
-                        this.metaCompressedIndex = variable.getPosition();
-                        break;
-                    case AnalyticsConstants.META_FIELD_TENANT_ID:
-                        this.metaTenantIdIndex = variable.getPosition();
-                        break;
-                    default:
-                        break;
-                }
-            }
-        }
-
-        if (this.dataColumnIndex == null || this.metaCompressedIndex == null || this.metaTenantIdIndex == null) {
-            throw new SiddhiAppCreationException("Attributes are invalid. Please use exact names as used " +
-                    "in the example for the attributes (flowData, meta_compressed and meta_tenantId)");
-        }
     }
 
     /**
