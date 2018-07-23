@@ -52,7 +52,7 @@ public class TestCaseOfDecompressStreamProcessorExtension {
                     if (count.get() == 1) {
                         String componentName = (String) event.getData(5);
                         log.info("Asserting decompressed events..");
-                        AssertJUnit.assertEquals("API", componentName);
+                        AssertJUnit.assertEquals("Proxy Service", componentName);
                         decompressedAttributesRetrieved = true;
                     }
                 }

@@ -15,7 +15,7 @@
     <dependencies>
         <dependency>
             <groupId>com.esotericsoftware</groupId>
-            <artifactId>kryo</artifactId>
+            <artifactId>kryo-shaded</artifactId>
         </dependency>
         <dependency>
             <groupId>org.wso2.siddhi</groupId>
@@ -98,6 +98,7 @@
                         </Import-Package>
                         <Private-Package>
                             com.esotericsoftware.kryo.*,
+                            org.wso2.orbit.com.esotericsoftware.kryo,
                             org.wso2.carbon.analytics.spark.core.*,
                             com.esotericsoftware.minlog.*,
                             com.esotericsoftware.reflectasm.*,

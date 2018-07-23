@@ -47,12 +47,14 @@
         </profile>
     </profiles>
     <properties>
-        <kryo.version>4.0.2</kryo.version>
+        <!--<kryo.version>4.0.2</kryo.version>-->
         <siddhi.version>4.1.43</siddhi.version>
         <log4j.version>1.2.17.wso2v1</log4j.version>
         <testng.version>6.11</testng.version>
         <jacoco.maven.version>0.7.8</jacoco.maven.version>
         <carbon.analytics.version>1.2.3</carbon.analytics.version>
+        <!--<kryo.orbit.version>2.24.0.wso2v1</kryo.orbit.version>-->
+        <esotericsoftware.kryo.version>3.0.3</esotericsoftware.kryo.version>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -61,10 +63,20 @@
                 <artifactId>org.wso2.carbon.analytics.spark.core</artifactId>
                 <version>${carbon.analytics.version}</version>
             </dependency>
+            <!--<dependency>-->
+                <!--<groupId>com.esotericsoftware</groupId>-->
+                <!--<artifactId>kryo</artifactId>-->
+                <!--<version>${kryo.version}</version>-->
+            <!--</dependency>-->
+            <!--<dependency>-->
+                <!--<groupId>org.wso2.orbit.com.esotericsoftware.kryo</groupId>-->
+                <!--<artifactId>kryo</artifactId>-->
+                <!--<version>${kryo.orbit.version}</version>-->
+            <!--</dependency>-->
             <dependency>
                 <groupId>com.esotericsoftware</groupId>
-                <artifactId>kryo</artifactId>
-                <version>${kryo.version}</version>
+                <artifactId>kryo-shaded</artifactId>
+                <version>${esotericsoftware.kryo.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.wso2.siddhi</groupId>
